@@ -8,9 +8,10 @@ interface AddFileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onSelectFile?: (fileId: number, fileNo: string) => void;
 }
 
-const AddFileModal: React.FC<AddFileModalProps> = ({ isOpen, onClose, onSuccess }) => {
+const AddFileModal: React.FC<AddFileModalProps> = ({ isOpen, onClose, onSuccess, onSelectFile }) => {
   const [formData, setFormData] = useState({
     yil: new Date().getFullYear(),
     esas_no: '',
@@ -23,24 +24,52 @@ const AddFileModal: React.FC<AddFileModalProps> = ({ isOpen, onClose, onSuccess 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setYukleniyor(true);
+
+    const birimId = localStorage.getItem('userBirimId');
+    const userId = localStorage.getItem('userId');
+
     try {
       await fileApi.create({
         ...formData,
-        esas_no: parseInt(formData.esas_no)
+        esas_no: parseInt(formData.esas_no),
+        birim_id: birimId ? parseInt(birimId) : null,
+        olusturan_id: userId ? parseInt(userId) : null
       });
-      toast.success("Dosya başarıyla kaydedildi.");
+      toast.success('Dosya başarıyla kaydedildi.');
       onSuccess();
       onClose();
-      setFormData({
-        yil: new Date().getFullYear(),
-        esas_no: '',
-        taraf_bilgileri: '',
-        konu: '',
-        durum: 'Açık'
-      });
-    } catch (err) {
-      console.error("Dosya kaydedilemedi:", err);
-      toast.error("Hata: Dosya kaydedilemedi. Bilgileri kontrol edin.");
+      setFormData({ yil: new Date().getFullYear(), esas_no: '', taraf_bilgileri: '', konu: '', durum: 'Açık' });
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        const detail = err.response.data?.detail;
+        const existingId: number = detail?.existing_id;
+        const existingNo: string = detail?.existing_no || '';
+        const msg = detail?.message || 'Bu dosya numarası zaten kayıtlı.';
+
+        // Toast ile bildir + tıklanabilir git butonu
+        toast(
+          (t) => (
+            <div className="flex flex-col gap-2">
+              <p className="font-bold text-slate-900 text-sm">{msg}</p>
+              {existingId && onSelectFile && (
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    onClose();
+                    onSelectFile(existingId, existingNo);
+                  }}
+                  className="px-4 py-2 bg-royal-blue text-white rounded-xl font-bold text-xs hover:bg-royal-blue-dark transition-all"
+                >
+                  → {existingNo} Dosyasına Git
+                </button>
+              )}
+            </div>
+          ),
+          { duration: 8000, icon: '⚠️' }
+        );
+      } else {
+        toast.error('Hata: Dosya kaydedilemedi. Bilgileri kontrol edin.');
+      }
     } finally {
       setYukleniyor(false);
     }

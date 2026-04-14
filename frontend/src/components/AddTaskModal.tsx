@@ -38,12 +38,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSuccess,
     e.preventDefault();
     if (!selectedFileId) return;
 
+    const userId = localStorage.getItem('userId');
+
     setYukleniyor(true);
     try {
       await taskApi.create({
         dosya_id: selectedFileId,
         sablon_id: parseInt(formData.sablon_id),
-        vade_tarihi: new Date().toISOString().split('T')[0], // Backend will auto-calc this anyway
+        olusturan_id: userId ? parseInt(userId) : null,
+        atanan_id: userId ? parseInt(userId) : null, // İlk atama oluşturan kişiye
         notlar: formData.notlar
       });
       onSuccess();

@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 const Dashboard: React.FC = () => {
   const [statsData, setStatsData] = useState<any>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchStats();
@@ -22,7 +23,8 @@ const Dashboard: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await statsApi.getSummary();
+      const birimId = localStorage.getItem('userBirimId');
+      const response = await statsApi.getSummary(birimId ? parseInt(birimId) : undefined);
       setStatsData(response.data);
     } catch (err) {
       console.error("İstatistikler alınamadı:", err);
@@ -32,13 +34,16 @@ const Dashboard: React.FC = () => {
   };
 
   const stats = [
-    { label: 'Vadesi Geçen', value: statsData?.vadesi_gecen ?? '0', icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-100' },
-    { label: 'Kritik (Yakın)', value: statsData?.kritik ?? '0', icon: Clock, color: 'text-gold', bg: 'bg-amber-50', border: 'border-amber-100' },
     { label: 'Devam Eden', value: statsData?.devam_eden ?? '0', icon: ArrowUpRight, color: 'text-royal-blue', bg: 'bg-blue-50', border: 'border-blue-100' },
+    { label: 'Kritik (Yakın)', value: statsData?.kritik ?? '0', icon: Clock, color: 'text-gold', bg: 'bg-amber-50', border: 'border-amber-100' },
+    { label: 'Vadesi Geçen', value: statsData?.vadesi_gecen ?? '0', icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-100' },
     { label: 'Tamamlanan', value: statsData?.tamamlanan ?? '0', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-100' },
   ];
 
-  const recentTasks = statsData?.recent_tasks ?? [];
+  const recentTasks = (statsData?.recent_tasks ?? []).filter((task: any) => 
+    task.file.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    task.action.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -54,8 +59,10 @@ const Dashboard: React.FC = () => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-royal-blue transition-colors" />
           <input 
             type="text" 
-            placeholder="Esas no veya taraf ismiyle hızlı ara..."
-            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-royal-blue/10 focus:border-royal-blue outline-none transition-all"
+            placeholder="Esas no veya işlem adıyla hızlı ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-4 focus:ring-royal-blue/10 focus:border-royal-blue outline-none transition-all font-medium"
           />
         </div>
       </div>

@@ -1,11 +1,29 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base, SessionLocal, get_db
+from sqlalchemy.orm import Session
+from datetime import date, timedelta
+from typing import Optional, List
 from . import models
 from .routers import auth, files, tasks, templates
 
 # Veritabanı tablolarını oluştur
 models.Base.metadata.create_all(bind=engine)
+
+def run_migrations():
+    """SQLite ALTER TABLE migrasyonları — sütun yoksa ekler."""
+    db = SessionLocal()
+    try:
+        from sqlalchemy import text
+        try:
+            db.execute(text("ALTER TABLE dosya_silme_talepleri ADD COLUMN talep_tarihi DATE"))
+            db.commit()
+        except Exception:
+            pass  # Sütun zaten varsa sessizce geç
+    finally:
+        db.close()
+
+run_migrations()
 
 def seed_data():
     db = SessionLocal()
@@ -49,22 +67,22 @@ def read_root():
     }
 
 @app.get("/stats")
-def get_stats(db: SessionLocal = Depends(database.get_db)):
+def get_stats(birim_id: Optional[int] = None, db: Session = Depends(get_db)):
     today = date.today()
     
-    # İstatistikleri hesapla
-    vadesi_gecen = db.query(models.AktifGorev).filter(models.AktifGorev.vade_tarihi < today, models.AktifGorev.durum != "Tamamlandı").count()
-    kritik = db.query(models.AktifGorev).filter(models.AktifGorev.vade_tarihi >= today, models.AktifGorev.vade_tarihi <= today + timedelta(days=3), models.AktifGorev.durum != "Tamamlandı").count()
-    devam_eden = db.query(models.AktifGorev).filter(models.AktifGorev.durum == "Bekliyor").count()
-    tamamlanan = db.query(models.AktifGorev).filter(models.AktifGorev.durum == "Tamamlandı").count()
+    # Queryleri birim bazlı filtrele
+    tasks_query = db.query(models.AktifGorev).join(models.Dosya).filter(models.Dosya.birim_id == birim_id) if birim_id else db.query(models.AktifGorev)
     
-    # Son görevleri al (Gerçek veri)
-    recent_tasks_db = db.query(models.AktifGorev).order_by(models.AktifGorev.vade_tarihi.asc()).limit(5).all()
+    # İstatistikleri hesapla
+    vadesi_gecen = tasks_query.filter(models.AktifGorev.vade_tarihi < today, models.AktifGorev.durum != "Tamamlandı").count()
+    kritik = tasks_query.filter(models.AktifGorev.vade_tarihi >= today, models.AktifGorev.vade_tarihi <= today + timedelta(days=3), models.AktifGorev.durum != "Tamamlandı").count()
+    devam_eden = tasks_query.filter(models.AktifGorev.durum == "Bekliyor").count()
+    tamamlanan = tasks_query.filter(models.AktifGorev.durum == "Tamamlandı").count()
+    
+    # Son görevleri al
+    recent_tasks_db = tasks_query.order_by(models.AktifGorev.vade_tarihi.asc()).limit(5).all()
     recent_tasks = []
     for t in recent_tasks_db:
-        dosya = db.query(models.Dosya).filter(models.Dosya.id == t.dosya_id).first()
-        sablon = db.query(models.SenaryoSablonu).filter(models.SenaryoSablonu.id == t.sablon_id).first()
-        
         # Durum belirleme logic'i
         durum_label = "Bekliyor"
         if t.vade_tarihi < today: durum_label = "Gecikmiş"
@@ -72,8 +90,8 @@ def get_stats(db: SessionLocal = Depends(database.get_db)):
         
         recent_tasks.append({
             "id": t.id,
-            "file": f"{dosya.yil}/{dosya.esas_no} Esas" if dosya else "Bilinmiyor",
-            "action": sablon.ad if sablon else "İşlem",
+            "file": f"{t.dosya.yil}/{t.dosya.esas_no} Esas" if t.dosya else "Bilinmiyor",
+            "action": t.sablon.ad if t.sablon else "İşlem",
             "due": t.vade_tarihi.strftime("%d.%m.%Y"),
             "status": durum_label
         })

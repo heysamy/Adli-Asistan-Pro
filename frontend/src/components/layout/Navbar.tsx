@@ -1,12 +1,23 @@
 import React from 'react';
 import { Bell, ChevronDown } from 'lucide-react';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  onProfileClick: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onProfileClick }) => {
+  const userName = localStorage.getItem('userName') || 'Bilinmiyor';
+  const userTitle = localStorage.getItem('userTitle') || 'Kullanıcı';
+  
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
   return (
     <header className="h-24 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-40">
       <div className="flex items-center gap-4">
         <div className="w-1.5 h-8 bg-gold rounded-full"></div>
-        <h2 className="text-xl font-bold text-slate-800">Hoş Geldiniz, <span className="text-royal-blue">Semih Bey</span></h2>
+        <h2 className="text-xl font-bold text-slate-800">Hoş Geldiniz, <span className="text-royal-blue">{userName.split(' ')[0]} Bey/Hanım</span></h2>
       </div>
 
       <div className="flex items-center gap-8">
@@ -21,17 +32,20 @@ const Navbar: React.FC = () => {
             </button>
         </div>
 
-        <div className="flex items-center gap-4 pl-8 border-l border-slate-100">
+        <div 
+          onClick={onProfileClick}
+          className="flex items-center gap-4 pl-8 border-l border-slate-100 cursor-pointer group"
+        >
           <div className="text-right">
-            <p className="text-sm font-bold text-slate-900">Semih Çetin</p>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Yazı İşleri Müdürü</p>
+            <p className="text-sm font-bold text-slate-900 group-hover:text-royal-blue transition-colors">{userName}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{userTitle}</p>
           </div>
-          <button className="flex items-center gap-2 p-1.5 bg-slate-50 rounded-2xl group transition-all hover:bg-slate-100">
-             <div className="w-10 h-10 bg-royal-blue rounded-xl flex items-center justify-center text-white font-bold group-hover:bg-royal-blue-dark shadow-md shadow-royal-blue/20">
-                SÇ
+          <div className="flex items-center gap-2 p-1.5 bg-slate-50 rounded-2xl transition-all hover:bg-slate-100">
+             <div className="w-10 h-10 bg-royal-blue rounded-xl flex items-center justify-center text-white font-bold group-hover:bg-royal-blue-dark shadow-md shadow-royal-blue/20 transition-all group-hover:scale-105">
+                {getInitials(userName)}
              </div>
              <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
-          </button>
+          </div>
         </div>
       </div>
     </header>
